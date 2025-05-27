@@ -281,7 +281,90 @@ lemma mulEquivHaarChar_piCongrRight [Fintype ι] (ψ : Π i, (H i) ≃ₜ* (H i)
     letI : MeasurableSpace (Π i, H i) := borel _
     haveI : BorelSpace (Π i, H i) := ⟨rfl⟩
     mulEquivHaarChar (ContinuousMulEquiv.piCongrRight ψ) = ∏ i, mulEquivHaarChar (ψ i) := by
-  sorry -- FLT#521 -- induction on size of ι
+  --cases nonempty_fintype ι
+  --revert H
+  --cases nonempty_fintype ι
+  --refine Fintype.induction_subsingleton_or_nontrivial ι ?_ ?_
+
+
+  --revert H
+  --cases nonempty_fintype ι
+  --refine Fintype.induction_empty_option ?_ ?_ ?_ ι
+
+  --revert H
+  --let n := Fintype.card ι
+  --induction n generalizing ι
+  revert H
+  let P (α : Type u_1) [Fintype α] := ∀ {H : α → Type u_2} (inst : (i : α) → Group (H i))
+    (inst_1 : (i : α) → TopologicalSpace (H i)) (inst_2 : ∀ (i : α), IsTopologicalGroup (H i))
+    (inst_3 : ∀ (i : α), LocallyCompactSpace (H i)) (inst_4 : (i : α) → MeasurableSpace (H i))
+    (inst_5 : ∀ (i : α), BorelSpace (H i)) (ψ : (i : α) → H i ≃ₜ* H i),
+      letI : MeasurableSpace (Π i, H i) := borel _
+      haveI : BorelSpace (Π i, H i) := ⟨rfl⟩
+      mulEquivHaarChar (ContinuousMulEquiv.piCongrRight ψ) = ∏ i, mulEquivHaarChar (ψ i)
+  suffices P ι by apply this
+  refine Fintype.induction_empty_option (P := P)
+    (fun α₁ α₂ h₂ e ih ↦ ?_) (?_) (fun γ h ih ↦ ?_) ι
+  · intro H h1 h2 h3 h4 h5 h6 ψ
+    let H' := H ∘ e.toFun
+    let h1' : (i : α₁) → Group (H' i) := fun i ↦ h1 (e.toFun i)
+    let h2' : (i : α₁) → TopologicalSpace (H' i) := fun i ↦ h2 (e.toFun i)
+    have h3' : ∀ (i : α₁), IsTopologicalGroup (H' i) := fun i ↦ h3 (e.toFun i)
+    have h4' : ∀ (i : α₁), LocallyCompactSpace (H' i) := fun i ↦ h4 (e.toFun i)
+    let h5' : (i : α₁) → MeasurableSpace (H' i) := fun i ↦ h5 (e.toFun i)
+    have h6' : ∀ (i : α₁), BorelSpace (H' i) := fun i ↦ h6 (e.toFun i)
+    let ψ' : (i : α₁) → (H ∘ e.toFun) i ≃ₜ* (H ∘ e.toFun) i := fun i ↦ ψ (e.toFun i)
+    convert ih h1' h2' h3' h4' h5' h6' ψ'
+    · unfold ψ'
+      let f : ((i : α₁) → (H ∘ e.toFun) i) ≃ₜ* ((i : α₂) → H i) := {
+        toFun := by
+          intro x i
+
+          convert x (e.invFun i)
+          simp
+        invFun := fun x i ↦ x (e.toFun i)
+        left_inv := by
+          unfold Function.LeftInverse
+          intro x
+          ext i
+          have : e.symm (e i) = i := by exact Equiv.symm_apply_apply e i
+          simp [this]
+
+
+          sorry
+        right_inv := sorry
+        map_mul' := sorry
+        continuous_toFun := sorry
+        continuous_invFun := sorry
+      }
+      apply mulEquivHaarChar_eq_mulEquivHaarChar_of_isOpenEmbedding
+
+
+      --sorry
+    · sorry
+  · sorry
+  · sorry
+  --refine Fintype.induction_subsingleton_or_nontrivial (P := P) ι ?_ ?_
+
+  --induction ι using Fintype.induction_empty_option
+
+  --refine Fintype.induction_empty_option ?_ ?_ ?_ ι
+
+
+/-   generalize h : Fintype.card ι = n
+  induction n generalizing ι with
+  | zero =>
+    have : IsEmpty ι := Fintype.card_eq_zero_iff.mp h
+    rw [Finset.univ_eq_empty, Finset.prod_empty]
+    convert ← mulEquivHaarChar_eq_one_of_compactSpace (ContinuousMulEquiv.piCongrRight ψ)
+    exact BorelSpace.measurable_eq
+  | succ n ih =>
+
+    sorry -/
+
+
+
+  --sorry -- FLT#521 -- induction on size of ι
 
 end pi
 
