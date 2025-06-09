@@ -256,6 +256,238 @@ def _root_.ContinuousMulEquiv.prodCongr (φ : A ≃ₜ* B) (ψ : C ≃ₜ* D) : 
 
 end prodCongr
 
+namespace Measure
+
+section HaarSliceMeasure
+
+/-!
+### Haar measures from slices
+
+This section provides general machinery for constructing Haar measures
+from slices of product spaces.
+-/
+
+variable {G H : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+  [LocallyCompactSpace G] [MeasurableSpace G] [BorelSpace G]
+  [Group H] [TopologicalSpace H] [IsTopologicalGroup H]
+  [LocallyCompactSpace H] [MeasurableSpace H] [BorelSpace H]
+
+/-- Construct a measure on `G` by slicing with a fixed set in `H` -/
+noncomputable def measureFromSlice (S : Set H) (hS : MeasurableSet S) : Measure G :=
+  letI : MeasurableSpace (G × H) := borel _
+  haveI : BorelSpace (G × H) := ⟨rfl⟩
+  let f (s : Set G) (_ : MeasurableSet s) := haar (s ×ˢ S)
+  let m := inducedOuterMeasure f (by simp) (by simp [f])
+  have h ⦃T : ℕ → Set G⦄ (hT : ∀ i, MeasurableSet (T i))
+      (hT' : Pairwise (Function.onFun Disjoint T)) :
+      haar ((⋃ i, T i) ×ˢ S) = ∑' i, haar (T i ×ˢ S) := by
+    rw [Set.iUnion_prod_const]
+    exact haar.m_iUnion (prod_le_borel_prod _ <| hT ·|>.prod hS)
+      (fun _ _ neq ↦ by simp [hT' neq])
+  { toOuterMeasure := m
+    m_iUnion T hT hT' := by
+      convert h hT hT'
+      · exact inducedOuterMeasure_eq _ h (MeasurableSet.iUnion hT)
+      · exact inducedOuterMeasure_eq _ h (hT _)
+    trim_le T := by
+      apply le_inducedOuterMeasure.mpr fun s hs ↦ by
+        rwa [← inducedOuterMeasure_eq (m := f) _ h hs, OuterMeasure.trim_eq] }
+
+@[simp]
+lemma measureFromSlice_apply {S : Set H} (hS : MeasurableSet S)
+    {T : Set G} (hT : MeasurableSet T) :
+    letI : MeasurableSpace (G × H) := borel _
+    haveI : BorelSpace (G × H) := ⟨rfl⟩
+    measureFromSlice S hS T = haar (T ×ˢ S) := by
+  letI : MeasurableSpace (G × H) := borel _
+  haveI : BorelSpace (G × H) := ⟨rfl⟩
+  let f (s : Set G) (_ : MeasurableSet s) := haar (s ×ˢ S)
+  let m := inducedOuterMeasure f (by simp) (by simp [f])
+  have h ⦃T : ℕ → Set G⦄ (hT : ∀ i, MeasurableSet (T i))
+      (hT' : Pairwise (Function.onFun Disjoint T)) :
+      haar ((⋃ i, T i) ×ˢ S) = ∑' i, haar (T i ×ˢ S) := by
+    rw [Set.iUnion_prod_const]
+    exact haar.m_iUnion (prod_le_borel_prod _ <| hT ·|>.prod hS)
+      (fun _ _ neq ↦ by simp [hT' neq])
+  change m _ = _
+  rw [inducedOuterMeasure_eq _ h hT]
+
+/-- Slicing the Haar measure gives the same as our slice construction -/
+lemma haar_prod_eq_measureFromSlice (S : Set H) (hS : MeasurableSet S) (T : Set G)
+    (hT : MeasurableSet T) :
+    letI : MeasurableSpace (G × H) := borel _
+    haveI : BorelSpace (G × H) := ⟨rfl⟩
+    haar (T ×ˢ S) = measureFromSlice S hS T := by
+  simp [measureFromSlice_apply hS hT]
+
+/-- How measureFromSlice transforms under homeomorphisms -/
+lemma measureFromSlice_map_homeomorph {S : Set H} (hS : MeasurableSet S)
+    (φ : G ≃ₜ G) (T : Set G) (hT : MeasurableSet T) :
+    map φ (measureFromSlice S hS) T = measureFromSlice S hS (φ ⁻¹' T) := by
+  rw [map_apply φ.measurable hT]
+
+open Pointwise in
+/-- A measure constructed from slicing is a Haar measure when the slice
+    contains a compact neighborhood of 1 -/
+lemma isHaarMeasure_measureFromSlice {S : Set H} (hS : MeasurableSet S) (hS' : S.Nonempty)
+    (hSopen : IsOpen S) {K : Set H} (hK : IsCompact K) (hSK : S ⊆ K) :
+    IsHaarMeasure (measureFromSlice S hS : Measure G) :=
+  letI : MeasurableSpace (G × H) := borel _
+  haveI : BorelSpace (G × H) := ⟨rfl⟩
+  let f (s : Set G) (_ : MeasurableSet s) := haar (s ×ˢ S)
+  let m := inducedOuterMeasure f (by simp) (by simp [f])
+  { lt_top_of_isCompact C hC := by
+      have ⦃S' : ℕ → Set G⦄ (hS' : ∀ (i : ℕ), MeasurableSet (S' i)) :
+          haar ((⋃ i, S' i) ×ˢ S) ≤ ∑' (i : ℕ), haar (S' i ×ˢ S) := by
+        rw [Set.iUnion_prod_const]
+        exact measure_iUnion_le _
+      change m C < _
+      rw [inducedOuterMeasure_eq_iInf _ this, iInf_lt_top]
+      · have ⟨C', hC', hCC'⟩ := exists_compact_superset hC
+        use interior C'
+        refine iInf_lt_iff.mpr ⟨isOpen_interior.measurableSet, iInf_lt_iff.mpr ⟨hCC', ?_⟩⟩
+        apply lt_of_le_of_lt (measure_mono <| Set.prod_mono interior_subset hSK)
+        exact (hC'.prod hK).measure_ne_top.symm.lt_top'
+      · exact fun s₁ s₂ _ _ sub ↦ measure_mono <| Set.prod_mono sub subset_rfl
+      · exact fun S hS ↦ MeasurableSet.iUnion hS
+    map_mul_left_eq_self := fun g ↦ by
+      ext T hT
+      rw [map_apply (measurable_const_mul g) hT]
+      have hT' : MeasurableSet ((fun x ↦ g * x) ⁻¹' T) := by
+        convert MeasurableSet.const_smul hT g⁻¹ using 1
+        refine subset_antisymm (fun x hx ↦ ?_) (fun x hx ↦ ?_)
+        · use g * x, Set.mem_preimage.mp hx, by simp
+        · have ⟨s, ⟨_, hs⟩⟩ := hx; simpa [← hs]
+      simp only [measureFromSlice_apply hS hT, measureFromSlice_apply hS hT']
+      suffices ((g * ·) ⁻¹' T) ×ˢ S = (g⁻¹, (1 : H)) • (T ×ˢ S) by
+        rw [this, measure_smul]
+      refine subset_antisymm (fun ⟨x, y⟩ hxy ↦ ?_) (fun ⟨x, y⟩ hxy ↦ ?_)
+      · have ⟨⟨x', y'⟩, h₁, h₂⟩ := hxy
+        have ⟨_, _⟩ := Set.mem_prod.mp h₁
+        simp only [smul_eq_mul, Prod.mk_mul_mk, one_mul, Prod.mk.injEq] at h₂
+        constructor <;> simpa [← h₂.1, ← h₂.2]
+      · use ⟨g • x, y⟩, hxy, by simp
+    open_pos := fun U hUopen hU ↦ by
+      rw [measureFromSlice_apply hS hUopen.measurableSet]
+      refine (isHaarMeasure_haarMeasure _).open_pos _ (hUopen.prod hSopen) ?_
+      exact Set.Nonempty.prod hU hS' }
+
+end HaarSliceMeasure
+
+section HaarCharacterProduct
+
+variable {G : Type*} [Group G] [TopologicalSpace G] [IsTopologicalGroup G]
+  [LocallyCompactSpace G] [MeasurableSpace G] [BorelSpace G]
+  {H : Type*} [Group H] [TopologicalSpace H] [IsTopologicalGroup H]
+  [LocallyCompactSpace H] [MeasurableSpace H] [BorelSpace H]
+
+/-- Key lemma: the Haar character of a mapped slice measure -/
+lemma mulEquivHaarChar_measureFromSlice_eq {S : Set H} (hS : MeasurableSet S) (hS' : S.Nonempty)
+    (hSopen : IsOpen S) {K : Set H} (hK : IsCompact K) (hSK : S ⊆ K) (φ : G ≃ₜ* G)
+    (X : Set G) (hX : MeasurableSet X) (hXopen : IsOpen X) :
+    mulEquivHaarChar φ * measureFromSlice S hS X =
+    measureFromSlice S hS (φ ⁻¹' (φ '' X)) := by
+  letI : MeasurableSpace (G × H) := borel _
+  have : BorelSpace (G × H) := ⟨rfl⟩
+  have : BorelSpace G := by assumption
+  have : BorelSpace H := by assumption
+  have : IsHaarMeasure (measureFromSlice S hS : Measure G) :=
+    isHaarMeasure_measureFromSlice hS hS' hSopen hK hSK
+  rw [← mulEquivHaarChar_map_open (measureFromSlice S hS) φ (φ.isOpen_image.mpr hXopen)]
+  simp only [smul_apply, nnreal_smul_coe_apply, map_apply φ.measurable]
+  rfl
+
+/-- The multiplicativity property for Haar characters on products -/
+lemma mulEquivHaarChar_prod_formula (φ : G ≃ₜ* G) (ψ : H ≃ₜ* H)
+    (X : Set G) (hX : MeasurableSet X) (hXopen : IsOpen X)
+    (Y : Set H) (hY : MeasurableSet Y) (hYopen : IsOpen Y) :
+    haar ((φ '' X) ×ˢ (ψ '' Y)) =
+    mulEquivHaarChar φ * mulEquivHaarChar ψ * haar (X ×ˢ Y) := by
+  letI : MeasurableSpace (G × H) := borel _
+  haveI : BorelSpace (G × H) := ⟨rfl⟩
+
+  -- First, relate to slice measures
+  rw [haar_prod_eq_measureFromSlice (ψ '' Y) (ψ.isOpen_image.mpr hYopen).measurableSet]
+  rw [measureFromSlice_apply]
+
+  -- Apply the Haar character formula for the first component
+  have h_haar_ν : IsHaarMeasure (measureFromSlice (ψ '' Y) _) := by
+    apply isHaarMeasure_measureFromSlice
+    · exact ψ.isOpen_image.mpr hYopen
+    · obtain ⟨K, hK1, hKopen, hKcomp⟩ := exists_compact_mem_nhds (1 : H)
+      use ψ '' K
+      refine ⟨Set.image_subset _ <| subset_trans (subset_of_mem_nhds hK1) subset_univ, ?_, ?_⟩
+      · exact ψ.isCompact_image.mpr hKcomp
+      · rw [interior_image_subset ψ.toHomeomorph hKopen |>.antisymm _]
+        · exact ⟨ψ 1, mem_interior_iff_mem_nhds.mpr hK1, by simp⟩
+        · exact image_subset _ interior_subset
+
+  rw [← mulEquivHaarChar_measureFromSlice_eq _ (ψ.isOpen_image.mpr hYopen) φ X hX hXopen h_haar_ν]
+  rw [Set.preimage_image_eq _ φ.injective, mul_assoc]
+  rw [measureFromSlice_apply, measureFromSlice_apply]
+
+  -- Now handle the second component
+  have h_haar_μ : IsHaarMeasure (measureFromSlice X hX) := by
+    apply isHaarMeasure_measureFromSlice
+    · exact hXopen
+    · obtain ⟨K, hK1, _, hKcomp⟩ := exists_compact_mem_nhds (1 : G)
+      use closure X ∩ X
+      refine ⟨Set.inter_subset_right, ?_, ?_⟩
+      · exact (hKcomp.closure.inter_right hX)
+      · simp [interior_inter, interior_eq_iff_isOpen.mpr hXopen, mem_interior_iff_mem_nhds.mpr <|
+          hXopen.mem_nhds <| subset_of_mem_nhds hK1 subset_univ]
+
+  rw [← mulEquivHaarChar_map_open (measureFromSlice X hX) ψ (ψ.isOpen_image.mpr hYopen)]
+  simp only [smul_apply, nnreal_smul_coe_apply, map_apply ψ.measurable]
+  rw [Set.preimage_image_eq _ ψ.injective]
+  rw [measureFromSlice_apply]
+
+open scoped Pointwise
+
+@[to_additive MeasureTheory.addEquivAddHaarChar_prodCongr]
+lemma mulEquivHaarChar_prodCongr (φ : G ≃ₜ* G) (ψ : H ≃ₜ* H) :
+    letI : MeasurableSpace (G × H) := borel _
+    haveI : BorelSpace (G × H) := ⟨rfl⟩
+    mulEquivHaarChar (φ.prodCongr ψ) = mulEquivHaarChar φ * mulEquivHaarChar ψ := by
+  -- Get compact neighborhoods of identity
+  obtain ⟨X, hX1, hXopen, hXcomp⟩ := exists_compact_mem_nhds (1 : G)
+  obtain ⟨Y, hY1, hYopen, hYcomp⟩ := exists_compact_mem_nhds (1 : H)
+
+  -- Work with interiors for better properties
+  let X' := interior X
+  let Y' := interior Y
+  have hX'open : IsOpen X' := isOpen_interior
+  have hY'open : IsOpen Y' := isOpen_interior
+  have hX'1 : (1 : G) ∈ X' := mem_interior_iff_mem_nhds.mpr hX1
+  have hY'1 : (1 : H) ∈ Y' := mem_interior_iff_mem_nhds.mpr hY1
+
+  -- Apply uniqueness of Haar character
+  suffices mulEquivHaarChar (φ.prodCongr ψ) * haar (X' ×ˢ Y') =
+      mulEquivHaarChar φ * mulEquivHaarChar ψ * haar (X' ×ˢ Y') by
+    have h_pos : (0 : ℝ≥0∞) < haar (X' ×ˢ Y') := by
+      refine (isHaarMeasure_haarMeasure _).open_pos _ (hX'open.prod hY'open) ?_
+      exact ⟨⟨1, 1⟩, hX'1, hY'1⟩
+    have h_ne_top : haar (X' ×ˢ Y') ≠ ⊤ := by
+      apply ne_top_of_lt
+      refine lt_of_le_of_lt (measure_mono <| Set.prod_mono interior_subset interior_subset) ?_
+      exact (hXcomp.prod hYcomp).measure_ne_top.symm.lt_top'
+    exact_mod_cast (ENNReal.mul_left_inj h_pos.ne' h_ne_top).mp this
+
+  -- Main calculation
+  calc mulEquivHaarChar (φ.prodCongr ψ) * haar (X' ×ˢ Y')
+    _ = haar ((φ.prodCongr ψ) '' (X' ×ˢ Y')) := by
+      rw [← mulEquivHaarChar_map_open haar (φ.prodCongr ψ) (hX'open.prod hY'open)]
+      simp [smul_apply, nnreal_smul_coe_apply]
+    _ = haar ((φ '' X') ×ˢ (ψ '' Y')) := by
+      congr 1; ext; simp [Set.prod_image_image_eq]
+    _ = mulEquivHaarChar φ * mulEquivHaarChar ψ * haar (X' ×ˢ Y') := by
+      exact mulEquivHaarChar_prod_formula φ ψ X' hX'open.measurableSet hX'open
+        Y' hY'open.measurableSet hY'open
+
+end HaarCharacterProduct
+
+end Measure
+
 section prod
 
 variable {G : Type*} [Group G] [TopologicalSpace G]
@@ -546,3 +778,7 @@ lemma mulEquivHaarChar_restrictedProductCongrRight (φ : Π i, (G i) ≃ₜ* (G 
   --   apply this
   -- have hXμfinite : haar X < ∞ := IsCompact.measure_lt_top hXcompact
   sorry -- FLT#552
+
+end restrictedproduct
+
+end MeasureTheory
